@@ -1,664 +1,253 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steam Roulette & Library Recommender</title>
+    <title>Steam Backlog Recommender</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        steam: {
-                            darkest: '#1b2838',
-                            dark: '#171a21',
-                            card: '#2a475e',
-                            accent: '#66c0f4',
-                            green: '#5c7e10',
-                            glow: '#c7d5e0'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0e14;
+            color: #e2e8f0;
+        }
         .steam-gradient {
             background: linear-gradient(135deg, #1b2838 0%, #2a475e 100%);
         }
         .card-glow:hover {
-            box-shadow: 0 0 25px rgba(102, 192, 244, 0.3);
-            border-color: rgba(102, 192, 244, 0.6);
-        }
-        /* Custom scrollbar for game lists */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #171a21;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #2a475e;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #66c0f4;
+            box-shadow: 0 0 25px rgba(102, 192, 244, 0.25);
+            border-color: #66c0f4;
         }
     </style>
 </head>
-<body class="bg-[#171a21] text-[#c7d5e0] min-h-screen flex flex-col selection:bg-[#66c0f4] selection:text-[#171a21]">
+<body class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
 
-    <header class="bg-[#1b2838]/90 backdrop-blur-md border-b border-[#2a475e] sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('recommendations')">
-                <div class="bg-gradient-to-tr from-[#66c0f4] to-[#1b2838] p-2.5 rounded-xl shadow-lg border border-[#66c0f4]/30">
-                    <i data-lucide="gamepad-2" class="w-7 h-7 text-white"></i>
+    <!-- Header -->
+    <header class="steam-gradient border-b border-slate-800 py-6 px-4 shadow-xl">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-sky-500 p-2.5 rounded-xl shadow-lg shadow-sky-500/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                 </div>
                 <div>
-                    <h1 class="font-extrabold text-xl sm:text-2xl tracking-wide text-white flex items-center gap-2">
-                        STEAM <span class="text-[#66c0f4]">ROULETTE</span>
-                    </h1>
-                    <p class="text-xs text-gray-400">Cure your Steam backlog procrastination</p>
+                    <h1 class="text-2xl font-black tracking-wider text-white">STEAM BACKLOG ROULETTE</h1>
+                    <p class="text-xs text-sky-300 font-medium tracking-wide">Stop procrastinating. Start playing.</p>
                 </div>
             </div>
-
-            <nav class="flex items-center space-x-2 sm:space-x-4">
-                <button onclick="switchTab('recommendations')" id="nav-recs" class="px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-[#2a475e] text-white shadow-md flex items-center gap-2">
-                    <i data-lucide="sparkles" class="w-4 h-4 text-[#66c0f4]"></i>
-                    <span class="hidden sm:inline">Recommendations</span>
-                </button>
-                <button onclick="switchTab('library')" id="nav-lib" class="px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-300 hover:bg-[#2a475e]/50 hover:text-white flex items-center gap-2">
-                    <i data-lucide="library" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">My Library</span>
-                    <span id="library-count-badge" class="bg-[#2a475e] text-xs px-2 py-0.5 rounded-full border border-[#66c0f4]/20">0</span>
-                </button>
-                <button onclick="openHostingModal()" class="px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 flex items-center gap-2">
-                    <i data-lucide="globe" class="w-4 h-4"></i>
-                    <span class="hidden md:inline">Free Hosting Guide</span>
-                </button>
-            </nav>
         </div>
     </header>
 
-    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-
-        <!-- SETUP & STEAM ID BAR -->
-        <section class="bg-gradient-to-r from-[#1b2838] to-[#2a475e] rounded-2xl p-6 mb-8 border border-[#2a475e] shadow-xl relative overflow-hidden">
-            <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-                <i data-lucide="gamepad-2" class="w-80 h-80 text-white"></i>
-            </div>
+    <!-- Main Content -->
+    <main class="max-w-4xl w-full mx-auto p-4 sm:p-6 my-8 flex-grow">
+        
+        <!-- Input Section -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-2xl backdrop-blur-md mb-8">
+            <h2 class="text-lg font-bold text-white mb-2">Step 1: Load Your Library</h2>
+            <p class="text-xs text-slate-400 mb-4">Due to Steam's strict browser security blocks, public proxies sometimes timeout. If fetching fails, you can instantly use our built-in backlog mode below!</p>
             
-            <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div>
-                    <h2 class="text-xl sm:text-2xl font-bold text-white mb-2 flex items-center gap-2">
-                        <i data-lucide="user-check" class="w-6 h-6 text-[#66c0f4]"></i>
-                        Load Your Steam Library
-                    </h2>
-                    <p class="text-sm text-gray-300 max-w-xl">
-                        Enter your Steam ID 64 or custom URL, or instantly load our curated demo library with games across RPGs, FPS, Roguelikes, and Chill Indie gems!
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                    <div class="relative flex-grow md:w-72">
-                        <input type="text" id="steam-input" placeholder="SteamID64 or Custom URL..." class="w-full bg-[#171a21] border border-[#2a475e] rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#66c0f4] transition-all">
-                    </div>
-                    <button onclick="handleFetchLibrary()" class="bg-[#66c0f4] hover:bg-[#4fa8db] text-[#1b2838] font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg flex items-center gap-2 cursor-pointer">
-                        <i data-lucide="download" class="w-4 h-4"></i>
-                        Fetch Library
-                    </button>
-                    <button onclick="loadDemoLibrary()" class="bg-[#2a475e] hover:bg-[#355974] text-white font-medium px-4 py-2.5 rounded-xl text-sm transition-all border border-[#66c0f4]/30 flex items-center gap-2 cursor-pointer">
-                        <i data-lucide="sparkles" class="w-4 h-4 text-[#66c0f4]"></i>
-                        Load Demo Mode
-                    </button>
-                </div>
+            <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                <input type="text" id="steamInput" placeholder="https://steamcommunity.com/profiles/..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition text-sm">
+                <button onclick="fetchSteamLibrary()" id="loadBtn" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold px-6 py-3 rounded-xl transition shadow-lg shadow-sky-500/20 text-sm tracking-wide cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap">
+                    <span>Load Library</span>
+                </button>
             </div>
+            <div id="statusMsg" class="text-xs font-medium"></div>
+        </div>
 
-            <div id="fetch-status" class="mt-4 hidden text-xs flex items-center gap-2 text-[#66c0f4] bg-[#171a21]/60 p-3 rounded-lg border border-[#66c0f4]/20">
-                <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
-                <span id="fetch-status-text">Steam public profile loaded successfully. Ready to roll!</span>
+        <!-- Manual Backlog Manager (Ensures it ALWAYS works) -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-2xl backdrop-blur-md mb-8">
+            <h3 class="text-md font-bold text-white mb-2">🎮 Or Add Procrastinated Games Manually</h3>
+            <p class="text-xs text-slate-400 mb-4">Type a game name from your Steam backlog to add it directly to your roulette pool:</p>
+            <div class="flex gap-3">
+                <input type="text" id="manualGameInput" placeholder="e.g. Elden Ring, Cyberpunk 2077..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-400 text-sm">
+                <button onclick="addManualGame()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition text-sm whitespace-nowrap cursor-pointer">
+                    Add Game
+                </button>
             </div>
-        </section>
-
-        <!-- TAB 1: RECOMMENDATIONS VIEW -->
-        <div id="view-recommendations" class="space-y-8">
-            <div class="text-center py-6">
-                <h3 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-3">
-                    What Should You Play <span class="text-[#66c0f4]">Right Now?</span>
-                </h3>
-                <p class="text-gray-400 max-w-2xl mx-auto text-sm sm:text-base">
-                    Stop scrolling through your massive backlog. We analyze your library to serve up 3 perfectly curated picks across different moods.
-                </p>
-
-                <div class="mt-8 flex justify-center">
-                    <button onclick="rollTheDice()" class="group relative inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#66c0f4] to-[#4fa8db] text-[#1b2838] font-extrabold text-lg rounded-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer border border-white/20">
-                        <i data-lucide="dice-5" class="w-7 h-7 group-hover:rotate-180 transition-transform duration-500"></i>
-                        ROLL THE DICE (3 PICKS)
-                        <div class="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    </button>
-                </div>
-            </div>
-
-            <!-- RECOMMENDATIONS GRID -->
-            <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Placeholder state before rolling -->
-                <div class="col-span-full bg-[#1b2838]/60 border border-[#2a475e] rounded-2xl p-12 text-center">
-                    <div class="w-16 h-16 bg-[#2a475e] rounded-full flex items-center justify-center mx-auto mb-4 text-[#66c0f4]">
-                        <i data-lucide="gamepad" class="w-8 h-8"></i>
-                    </div>
-                    <h4 class="text-lg font-bold text-white mb-2">No recommendations generated yet!</h4>
-                    <p class="text-sm text-gray-400 mb-6">Click "Roll the Dice" above or load the demo library to get your customized game lineup.</p>
-                    <button onclick="loadDemoLibrary(); rollTheDice();" class="bg-[#2a475e] hover:bg-[#355974] text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border border-[#66c0f4]/30">
-                        Quick Start with Demo Library
-                    </button>
-                </div>
+            <div id="manualList" class="flex flex-wrap gap-2 mt-4">
+                <!-- Added custom games show here -->
             </div>
         </div>
 
-        <!-- TAB 2: LIBRARY VIEW -->
-        <div id="view-library" class="hidden space-y-6">
-            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-[#1b2838] p-6 rounded-2xl border border-[#2a475e]">
-                <div>
-                    <h3 class="text-2xl font-bold text-white flex items-center gap-2">
-                        <i data-lucide="library" class="w-6 h-6 text-[#66c0f4]"></i>
-                        Your Steam Library Manager
-                    </h3>
-                    <p class="text-sm text-gray-400 mt-1">Filter, search, and manage your loaded games or add custom titles manually.</p>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                    <div class="relative flex-grow md:w-64">
-                        <input type="text" id="library-search" oninput="renderLibraryView()" placeholder="Search library..." class="w-full bg-[#171a21] border border-[#2a475e] rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#66c0f4]">
-                    </div>
-                    <select id="genre-filter" onchange="renderLibraryView()" class="bg-[#171a21] border border-[#2a475e] rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#66c0f4]">
-                        <option value="all">All Genres</option>
-                        <option value="RPG">RPG</option>
-                        <option value="FPS">FPS</option>
-                        <option value="Indie">Indie</option>
-                        <option value="Strategy">Strategy</option>
-                        <option value="Roguelike">Roguelike</option>
-                        <option value="Horror">Horror</option>
-                    </select>
-                    <button onclick="openAddGameModal()" class="bg-[#66c0f4] hover:bg-[#4fa8db] text-[#1b2838] font-bold px-4 py-2 rounded-xl text-sm transition-all flex items-center gap-2 cursor-pointer">
-                        <i data-lucide="plus" class="w-4 h-4"></i>
-                        Add Game
-                    </button>
-                </div>
+        <!-- Action / Roll Section -->
+        <div id="rouletteSection" class="hidden text-center mb-10">
+            <div class="inline-block bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl w-full">
+                <h3 class="text-slate-300 font-semibold mb-2" id="libraryCountText">Ready to roll!</h3>
+                <p class="text-xs text-slate-400 mb-6">Click below to generate 3 curated recommendations from your library.</p>
+                <button onclick="rollRecommendations()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-lg px-8 py-4 rounded-xl shadow-xl shadow-emerald-500/20 transition transform hover:-translate-y-0.5 cursor-pointer w-full sm:w-auto">
+                    🎲 ROLL 3 RECOMMENDATIONS
+                </button>
             </div>
+        </div>
 
-            <!-- Library Table / Cards -->
-            <div class="bg-[#1b2838] rounded-2xl border border-[#2a475e] overflow-hidden shadow-xl">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-[#171a21] text-xs uppercase text-gray-400 border-b border-[#2a475e]">
-                                <th class="p-4">Game Title</th>
-                                <th class="p-4">Genre</th>
-                                <th class="p-4">Playtime</th>
-                                <th class="p-4">Status</th>
-                                <th class="p-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="library-table-body" class="divide-y divide-[#2a475e]/50 text-sm">
-                            <!-- Populated via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <!-- Recommendations Grid -->
+        <div id="recsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Cards appear here -->
         </div>
 
     </main>
 
-    <!-- HOSTING GUIDE MODAL -->
-    <div id="hosting-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-[#1b2838] border border-[#2a475e] rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button onclick="closeHostingModal()" class="absolute top-6 right-6 text-gray-400 hover:text-white bg-[#171a21] p-2 rounded-full">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-
-            <div class="flex items-center gap-3 mb-6">
-                <div class="bg-emerald-500/20 p-3 rounded-2xl border border-emerald-500/30">
-                    <i data-lucide="globe" class="w-8 h-8 text-emerald-400"></i>
-                </div>
-                <div>
-                    <h3 class="text-xl font-bold text-white">How to Host This Website for FREE</h3>
-                    <p class="text-sm text-gray-400">Deploy this web app in under 2 minutes so you can access it anywhere.</p>
-                </div>
-            </div>
-
-            <div class="space-y-6 text-sm text-gray-300">
-                <div class="bg-[#171a21] p-4 rounded-2xl border border-[#2a475e]">
-                    <h4 class="font-bold text-white mb-2 flex items-center gap-2">
-                        <span class="bg-[#66c0f4] text-[#1b2838] w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold">1</span>
-                        Option A: GitHub Pages (Recommended & Easiest)
-                    </h4>
-                    <p class="text-xs text-gray-400 mb-3">Save the code as <code class="text-[#66c0f4]">index.html</code> in a new GitHub repository, go to repository Settings &gt; Pages, and select branch <code class="text-[#66c0f4]">main</code>. Your site will instantly go live at <code class="text-[#66c0f4]">https://yourusername.github.io/repo-name</code>!</p>
-                </div>
-
-                <div class="bg-[#171a21] p-4 rounded-2xl border border-[#2a475e]">
-                    <h4 class="font-bold text-white mb-2 flex items-center gap-2">
-                        <span class="bg-[#66c0f4] text-[#1b2838] w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold">2</span>
-                        Option B: Vercel or Netlify (Drag & Drop)
-                    </h4>
-                    <p class="text-xs text-gray-400">Simply drag and drop your HTML file onto <a href="https://app.netlify.com/drop" target="_blank" class="text-[#66c0f4] underline">Netlify Drop</a> or import your repo into Vercel. Zero configuration needed!</p>
-                </div>
-
-                <div class="bg-[#171a21] p-4 rounded-2xl border border-[#2a475e]">
-                    <h4 class="font-bold text-white mb-2 flex items-center gap-2">
-                        <span class="bg-[#66c0f4] text-[#1b2838] w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold">3</span>
-                        About Steam API & CORS
-                    </h4>
-                    <p class="text-xs text-gray-400">Steam's Web API requires a personal API Key (free from Steam Community) and a CORS proxy if queried directly from a browser. This app includes a built-in Demo Library and manual entry so you can enjoy full functionality instantly without CORS blocks!</p>
-                </div>
-            </div>
-
-            <div class="mt-8 text-right">
-                <button onclick="closeHostingModal()" class="bg-[#66c0f4] text-[#1b2838] font-bold px-6 py-2.5 rounded-xl text-sm transition-all">
-                    Got it, thanks!
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ADD GAME MODAL -->
-    <div id="add-game-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-[#1b2838] border border-[#2a475e] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative">
-            <button onclick="closeAddGameModal()" class="absolute top-6 right-6 text-gray-400 hover:text-white bg-[#171a21] p-2 rounded-full">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-
-            <h3 class="text-xl font-bold text-white mb-4">Add Custom Game to Library</h3>
-
-            <form onsubmit="handleAddNewGame(event)" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">Game Title</label>
-                    <input type="text" id="new-title" required placeholder="e.g., Cyberpunk 2077" class="w-full bg-[#171a21] border border-[#2a475e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#66c0f4]">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">Genre</label>
-                    <select id="new-genre" class="w-full bg-[#171a21] border border-[#2a475e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#66c0f4]">
-                        <option value="RPG">RPG</option>
-                        <option value="FPS">FPS</option>
-                        <option value="Indie">Indie</option>
-                        <option value="Strategy">Strategy</option>
-                        <option value="Roguelike">Roguelike</option>
-                        <option value="Horror">Horror</option>
-                        <option value="Simulation">Simulation</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">Playtime (Hours)</label>
-                    <input type="number" id="new-playtime" value="0" min="0" class="w-full bg-[#171a21] border border-[#2a475e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#66c0f4]">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">Status</label>
-                    <select id="new-status" class="w-full bg-[#171a21] border border-[#2a475e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#66c0f4]">
-                        <option value="Backlog">Backlog (Unplayed)</option>
-                        <option value="Played">Played</option>
-                        <option value="In Progress">In Progress</option>
-                    </select>
-                </div>
-
-                <div class="pt-4 flex justify-end gap-3">
-                    <button type="button" onclick="closeAddGameModal()" class="bg-[#171a21] hover:bg-[#2a475e] text-gray-300 font-medium px-4 py-2 rounded-xl text-sm">Cancel</button>
-                    <button type="submit" class="bg-[#66c0f4] hover:bg-[#4fa8db] text-[#1b2838] font-bold px-5 py-2 rounded-xl text-sm">Add Game</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- CUSTOM MESSAGE / TOAST NOTIFICATION -->
-    <div id="toast" class="fixed bottom-6 right-6 bg-[#1b2838] border border-[#66c0f4] text-white px-5 py-3 rounded-2xl shadow-2xl z-50 transform translate-y-32 opacity-0 transition-all duration-300 flex items-center gap-3">
-        <i data-lucide="check-circle-2" class="w-5 h-5 text-[#66c0f4]"></i>
-        <span id="toast-message" class="text-sm font-medium">Action successful!</span>
-    </div>
-
-    <!-- FOOTER -->
-    <footer class="bg-[#1b2838] border-t border-[#2a475e] py-8 mt-12 text-center text-xs text-gray-400">
-        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p>Steam Roulette Recommender &bull; Built for Gamers who Procrastinate</p>
-            <div class="flex items-center gap-4">
-                <button onclick="openHostingModal()" class="hover:text-[#66c0f4] transition-colors">Free Hosting Guide</button>
-                <span>&bull;</span>
-                <button onclick="loadDemoLibrary()" class="hover:text-[#66c0f4] transition-colors">Reset Demo Data</button>
-            </div>
-        </div>
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
+        <p>Built for gamers who own too many games and play too few. 🎮</p>
     </footer>
 
     <script>
-        // Default Mock Steam Library
-        const defaultLibrary = [
-            { id: 1, title: "Hades", genre: "Roguelike", playtime: 45.2, status: "Played", image: "https://placehold.co/600x350/1b2838/66c0f4?text=Hades" },
-            { id: 2, title: "Baldur's Gate 3", genre: "RPG", playtime: 120.5, status: "Played", image: "https://placehold.co/600x350/2a475e/66c0f4?text=Baldur's+Gate+3" },
-            { id: 3, title: "Cyberpunk 2077", genre: "RPG", playtime: 12.0, status: "In Progress", image: "https://placehold.co/600x350/171a21/66c0f4?text=Cyberpunk+2077" },
-            { id: 4, title: "Elden Ring", genre: "RPG", playtime: 85.0, status: "Played", image: "https://placehold.co/600x350/1b2838/ffffff?text=Elden+Ring" },
-            { id: 5, title: "Stardew Valley", genre: "Indie", playtime: 5.4, status: "Backlog", image: "https://placehold.co/600x350/2a475e/ffffff?text=Stardew+Valley" },
-            { id: 6, title: "Subnautica", genre: "Indie", playtime: 0.0, status: "Backlog", image: "https://placehold.co/600x350/171a21/ffffff?text=Subnautica" },
-            { id: 7, title: "Counter-Strike 2", genre: "FPS", playtime: 340.0, status: "Played", image: "https://placehold.co/600x350/1b2838/66c0f4?text=Counter-Strike+2" },
-            { id: 8, title: "DOOM Eternal", genre: "FPS", playtime: 4.1, status: "Backlog", image: "https://placehold.co/600x350/2a475e/66c0f4?text=DOOM+Eternal" },
-            { id: 9, title: "Civilization VI", genre: "Strategy", playtime: 62.8, status: "Played", image: "https://placehold.co/600x350/171a21/66c0f4?text=Civilization+VI" },
-            { id: 10, title: "Outer Wilds", genre: "Indie", playtime: 0.0, status: "Backlog", image: "https://placehold.co/600x350/1b2838/ffffff?text=Outer+Wilds" },
-            { id: 11, title: "Disco Elysium", genre: "RPG", playtime: 1.5, status: "Backlog", image: "https://placehold.co/600x350/2a475e/ffffff?text=Disco+Elysium" },
-            { id: 12, title: "Factorio", genre: "Strategy", playtime: 15.3, status: "In Progress", image: "https://placehold.co/600x350/171a21/ffffff?text=Factorio" }
+        let userGames = [
+            { title: "Cyberpunk 2077", image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80", hours: 2.5 },
+            { title: "Hades", image: "https://images.unsplash.com/photo-1612287233002-ef2d16c5236f?auto=format&fit=crop&w=600&q=80", hours: 4.1 },
+            { title: "Stardew Valley", image: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80", hours: 12.0 },
+            { title: "Portal 2", image: "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&w=600&q=80", hours: 0.8 },
+            { title: "Terraria", image: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80", hours: 5.4 }
         ];
 
-        let userLibrary = [];
-        let currentRecommendations = [];
+        renderManualList();
 
-        // Initialize application on window load
-        window.onload = function() {
-            // Load saved library or default demo
-            const saved = localStorage.getItem('steam_user_library');
-            if (saved) {
-                try {
-                    userLibrary = JSON.parse(saved);
-                } catch(e) {
-                    userLibrary = [...defaultLibrary];
-                }
-            } else {
-                userLibrary = [...defaultLibrary];
-            }
+        async function fetchSteamLibrary() {
+            let inputVal = document.getElementById('steamInput').value.trim();
+            const statusMsg = document.getElementById('statusMsg');
+            const loadBtn = document.getElementById('loadBtn');
 
-            updateLibraryBadge();
-            renderLibraryView();
-            lucide.createIcons();
-        };
-
-        function saveLibrary() {
-            localStorage.setItem('steam_user_library', JSON.stringify(userLibrary));
-            updateLibraryBadge();
-        }
-
-        function updateLibraryBadge() {
-            document.getElementById('library-count-badge').textContent = userLibrary.length;
-        }
-
-        // Tab Navigation
-        function switchTab(tabName) {
-            const recsView = document.getElementById('view-recommendations');
-            const libView = document.getElementById('view-library');
-            const navRecs = document.getElementById('nav-recs');
-            const navLib = document.getElementById('nav-lib');
-
-            if (tabName === 'recommendations') {
-                recsView.classList.remove('hidden');
-                libView.classList.add('hidden');
-                navRecs.className = "px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-[#2a475e] text-white shadow-md flex items-center gap-2";
-                navLib.className = "px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-300 hover:bg-[#2a475e]/50 hover:text-white flex items-center gap-2";
-            } else {
-                recsView.classList.add('hidden');
-                libView.classList.remove('hidden');
-                navLib.className = "px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-[#2a475e] text-white shadow-md flex items-center gap-2";
-                navRecs.className = "px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all text-gray-300 hover:bg-[#2a475e]/50 hover:text-white flex items-center gap-2";
-                renderLibraryView();
-            }
-            lucide.createIcons();
-        }
-
-        // Demo Library Loader
-        function loadDemoLibrary() {
-            userLibrary = [...defaultLibrary];
-            saveLibrary();
-            renderLibraryView();
-            showToast("Demo Steam library loaded successfully!");
-        }
-
-        // Fetch Steam Library Mock handler
-        function handleFetchLibrary() {
-            const inputVal = document.getElementById('steam-input').value.trim();
-            const statusBox = document.getElementById('fetch-status');
-            const statusText = document.getElementById('fetch-status-text');
-
-            statusBox.classList.remove('hidden');
             if (!inputVal) {
-                statusText.textContent = "No Steam ID entered. Loaded standard demo library for instant testing!";
-                loadDemoLibrary();
-            } else {
-                statusText.textContent = `Successfully fetched library for Steam ID: "${inputVal}" (Simulated public API sync)`;
-                // Add a couple randomized games for realism
-                const extraGames = [
-                    { id: Date.now() + 1, title: "Terraria", genre: "Indie", playtime: 14.2, status: "Backlog", image: "https://placehold.co/600x350/1b2838/66c0f4?text=Terraria" },
-                    { id: Date.now() + 2, title: "Monster Hunter: World", genre: "RPG", playtime: 42.0, status: "Played", image: "https://placehold.co/600x350/2a475e/66c0f4?text=Monster+Hunter" }
-                ];
-                userLibrary = [...defaultLibrary, ...extraGames];
-                saveLibrary();
-                renderLibraryView();
-            }
-            showToast("Library synchronized!");
-        }
-
-        // Roll the Dice Algorithm (3 Diverse Recommendations)
-        function rollTheDice() {
-            if (userLibrary.length === 0) {
-                showToast("Your library is empty! Load demo games or add custom titles first.");
+                statusMsg.className = "text-xs mt-2 text-rose-400";
+                statusMsg.innerText = "Please paste a valid Steam profile link.";
                 return;
             }
 
-            // Categorize into 3 distinct buckets:
-            // 1. Unplayed / Backlog Gem (playtime <= 2 hrs)
-            // 2. Favorite / High Playtime (playtime > 20 hrs)
-            // 3. Quick Indie / Different Genre / Wildcard
-            const backlog = userLibrary.filter(g => g.playtime <= 2 && g.status !== 'Played');
-            const favorites = userLibrary.filter(g => g.playtime > 10);
-            const indieOrOthers = userLibrary.filter(g => g.genre === 'Indie' || g.genre === 'Roguelike');
-
-            const pick1 = backlog.length > 0 ? backlog[Math.floor(Math.random() * backlog.length)] : userLibrary[Math.floor(Math.random() * userLibrary.length)];
+            inputVal = inputVal.replace(/\/+$/, '');
+            let targetUrl = '';
             
-            // Ensure pick 2 is different from pick 1
-            let remaining = userLibrary.filter(g => g.id !== pick1.id);
-            const pick2Pool = favorites.length > 0 ? favorites : remaining;
-            const pick2 = pick2Pool[Math.floor(Math.random() * pick2Pool.length)];
+            if (inputVal.includes('/profiles/')) {
+                const steamId64 = inputVal.split('/profiles/')[1].split('/')[0];
+                targetUrl = `https://steamcommunity.com/profiles/${steamId64}/games?xml=1`;
+            } else if (inputVal.includes('/id/')) {
+                const customId = inputVal.split('/id/')[1].split('/')[0];
+                targetUrl = `https://steamcommunity.com/id/${customId}/games?xml=1`;
+            } else {
+                targetUrl = `https://steamcommunity.com/id/${inputVal}/games?xml=1`;
+            }
 
-            remaining = remaining.filter(g => g.id !== pick2.id);
-            const pick3Pool = indieOrOthers.length > 0 ? indieOrOthers : (remaining.length > 0 ? remaining : userLibrary);
-            const pick3 = pick3Pool[Math.floor(Math.random() * pick3Pool.length)] || userLibrary[0];
+            loadBtn.disabled = true;
+            loadBtn.innerText = "Fetching...";
+            statusMsg.className = "text-xs mt-2 text-sky-400";
+            statusMsg.innerText = "Connecting to Steam community proxy...";
 
-            currentRecommendations = [
-                { ...pick1, categoryBadge: "The Backlog Gem", aiPrompt: "You bought this and completely forgot about it. Time to give it a fair chance!" },
-                { ...pick2, categoryBadge: "Your Vibe / Comfort Zone", aiPrompt: "A game you already know you love. Dive back in for an epic session." },
-                { ...pick3, categoryBadge: "The Wildcard / Indie Pick", aiPrompt: "Switch gears entirely with something fresh, snappy, and immersive." }
+            try {
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+
+                if (!data.contents) throw new Error("Proxy error");
+
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(data.contents, "text/xml");
+                const gameNodes = xmlDoc.getElementsByTagName("game");
+
+                if (gameNodes.length === 0) throw new Error("No games found");
+
+                userGames = [];
+                for (let i = 0; i < gameNodes.length; i++) {
+                    userGames.push({
+                        title: gameNodes[i].getElementsByTagName("name")[0]?.textContent || "Unknown Game",
+                        image: gameNodes[i].getElementsByTagName("logo")[0]?.textContent || "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80",
+                        hours: parseFloat(gameNodes[i].getElementsByTagName("hoursOnRecord")[0]?.textContent || "0")
+                    });
+                }
+
+                statusMsg.className = "text-xs mt-2 text-emerald-400";
+                statusMsg.innerText = `Success! Loaded ${userGames.length} games from Steam.`;
+                document.getElementById('rouletteSection').classList.remove('hidden');
+                renderManualList();
+                rollRecommendations();
+
+            } catch (err) {
+                console.warn("Proxy fetch failed, falling back to custom backlog mode.", err);
+                statusMsg.className = "text-xs mt-2 text-amber-400";
+                statusMsg.innerText = "Steam proxy timed out (CORS/522 block). Using your custom backlog list below instead!";
+                document.getElementById('rouletteSection').classList.remove('hidden');
+                rollRecommendations();
+            } finally {
+                loadBtn.disabled = false;
+                loadBtn.innerText = "Load Library";
+            }
+        }
+
+        function addManualGame() {
+            const input = document.getElementById('manualGameInput');
+            const val = input.value.trim();
+            if (!val) return;
+
+            userGames.push({
+                title: val,
+                image: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80",
+                hours: (Math.random() * 5).toFixed(1)
+            });
+            input.value = '';
+            document.getElementById('rouletteSection').classList.remove('hidden');
+            renderManualList();
+        }
+
+        function renderManualList() {
+            const list = document.getElementById('manualList');
+            list.innerHTML = userGames.map((g, idx) => `
+                <span class="bg-slate-950 border border-slate-800 text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 text-slate-300">
+                    ${g.title}
+                    <button onclick="userGames.splice(${idx}, 1); renderManualList();" class="text-rose-400 hover:text-rose-300 font-bold">&times;</button>
+                </span>
+            `).join('');
+        }
+
+        function rollRecommendations() {
+            if (userGames.length === 0) return;
+
+            let shuffled = [...userGames].sort(() => 0.5 - Math.random());
+            let selected = shuffled.slice(0, 3);
+
+            confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+
+            const container = document.getElementById('recsContainer');
+            container.innerHTML = '';
+
+            const categories = [
+                { title: "🎯 The Backlog Cleanse", desc: "Picked randomly to bust your procrastination." },
+                { title: "⚡ Quick Session Pick", desc: "Easy to jump straight into right now." },
+                { title: "🌟 Wildcard Adventure", desc: "Time to dive into something different." }
             ];
 
-            renderRecommendations();
-
-            // Trigger Confetti effect
-            confetti({
-                particleCount: 80,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#66c0f4', '#2a475e', '#ffffff', '#5c7e10']
-            });
-
-            showToast("Rolled 3 fresh game recommendations!");
-        }
-
-        // Render Recommendations Grid
-        function renderRecommendations() {
-            const container = document.getElementById('recommendations-container');
-            if (currentRecommendations.length === 0) return;
-
-            container.innerHTML = currentRecommendations.map((game, index) => `
-                <div class="bg-[#1b2838] border border-[#2a475e] rounded-2xl overflow-hidden shadow-2xl flex flex-col justify-between card-glow transition-all duration-300">
+            selected.forEach((game, index) => {
+                const cat = categories[index];
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden card-glow transition flex flex-col justify-between";
+                
+                card.innerHTML = `
                     <div>
-                        <div class="relative h-48 overflow-hidden bg-[#171a21]">
-                            <img src="${game.image}" alt="${game.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://placehold.co/600x350/171a21/66c0f4?text=Game+Art'">
-                            <span class="absolute top-3 left-3 bg-[#171a21]/90 backdrop-blur-md text-[#66c0f4] text-xs font-bold px-3 py-1 rounded-full border border-[#66c0f4]/30">
-                                ${game.categoryBadge}
-                            </span>
-                            <span class="absolute bottom-3 right-3 bg-[#171a21]/90 backdrop-blur-md text-gray-300 text-xs px-2.5 py-1 rounded-lg">
-                                ${game.playtime} hrs played
-                            </span>
-                        </div>
-                        <div class="p-6 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <h4 class="text-xl font-extrabold text-white">${game.title}</h4>
-                                <span class="text-xs bg-[#2a475e] text-gray-300 px-2.5 py-1 rounded-md font-medium">${game.genre}</span>
+                        <div class="h-40 overflow-hidden relative bg-slate-950">
+                            <img src="${game.image}" alt="${game.title}" class="w-full h-full object-cover">
+                            <div class="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-bold text-sky-400 uppercase tracking-wider border border-slate-800">
+                                ${cat.title}
                             </div>
-                            <p class="text-xs text-gray-300 italic bg-[#171a21]/60 p-3 rounded-xl border border-[#2a475e]">
-                                "${game.aiPrompt}"
-                            </p>
+                        </div>
+                        <div class="p-5">
+                            <h4 class="text-base font-bold text-white mb-1 line-clamp-1">${game.title}</h4>
+                            <p class="text-xs text-slate-400 mb-3">${cat.desc}</p>
+                            <div class="text-[11px] text-slate-500 font-medium">
+                                Hours played: <span class="text-slate-300 font-bold">${game.hours} hrs</span>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="p-6 pt-0 flex items-center gap-2">
-                        <button onclick="launchGame('${game.title}')" class="flex-grow bg-[#66c0f4] hover:bg-[#4fa8db] text-[#1b2838] font-bold py-2.5 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer">
-                            <i data-lucide="play" class="w-4 h-4 fill-current"></i>
-                            Launch on Steam
-                        </button>
-                        <button onclick="rerollSingleCard(${index})" title="Reroll this pick" class="bg-[#2a475e] hover:bg-[#355974] text-white p-2.5 rounded-xl transition-all border border-[#66c0f4]/30 cursor-pointer">
-                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                        </button>
+                    <div class="p-5 pt-0">
+                        <a href="https://store.steampowered.com/search/?term=${encodeURIComponent(game.title)}" target="_blank" class="block w-full text-center bg-slate-800 hover:bg-sky-500 hover:text-slate-950 text-slate-200 font-semibold py-2.5 rounded-xl transition text-xs tracking-wide">
+                            View on Store
+                        </a>
                     </div>
-                </div>
-            `).join('');
-
-            lucide.createIcons();
-        }
-
-        // Reroll single recommendation card
-        function rerollSingleCard(index) {
-            if (userLibrary.length === 0) return;
-            const randomGame = userLibrary[Math.floor(Math.random() * userLibrary.length)];
-            currentRecommendations[index] = {
-                ...randomGame,
-                categoryBadge: "Fresh Reroll",
-                aiPrompt: "A fresh alternative picked on the fly from your library!"
-            };
-            renderRecommendations();
-            showToast(`Rerolled card ${index + 1}!`);
-        }
-
-        // Launch Game Simulator
-        function launchGame(title) {
-            showToast(`Launching "${title}" via Steam protocol... Have fun!`);
-        }
-
-        // Render Library Manager Table
-        function renderLibraryView() {
-            const tbody = document.getElementById('library-table-body');
-            const searchVal = document.getElementById('library-search').value.toLowerCase();
-            const genreFilter = document.getElementById('genre-filter').value;
-
-            const filtered = userLibrary.filter(game => {
-                const matchesSearch = game.title.toLowerCase().includes(searchVal);
-                const matchesGenre = genreFilter === 'all' || game.genre === genreFilter;
-                return matchesSearch && matchesGenre;
-            });
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="p-8 text-center text-gray-400">No games found matching your search or filter.</td>
-                    </tr>
                 `;
-                return;
-            }
-
-            tbody.innerHTML = filtered.map(game => `
-                <tr class="hover:bg-[#2a475e]/30 transition-colors">
-                    <td class="p-4 font-semibold text-white flex items-center gap-3">
-                        <img src="${game.image}" alt="" class="w-10 h-10 rounded-lg object-cover bg-[#171a21]" onerror="this.src='https://placehold.co/100x100/171a21/66c0f4?text=Game'">
-                        <span>${game.title}</span>
-                    </td>
-                    <td class="p-4 text-gray-300">
-                        <span class="bg-[#171a21] text-xs px-2.5 py-1 rounded-md border border-[#2a475e]">${game.genre}</span>
-                    </td>
-                    <td class="p-4 text-gray-300">${game.playtime} hrs</td>
-                    <td class="p-4">
-                        <span class="px-2.5 py-1 rounded-full text-xs font-medium ${game.status === 'Played' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : (game.status === 'In Progress' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30')}">
-                            ${game.status}
-                        </span>
-                    </td>
-                    <td class="p-4 text-right space-x-2">
-                        <button onclick="toggleGameStatus(${game.id})" title="Toggle Status" class="text-gray-400 hover:text-[#66c0f4] p-1.5 bg-[#171a21] rounded-lg border border-[#2a475e]">
-                            <i data-lucide="check-circle" class="w-4 h-4"></i>
-                        </button>
-                        <button onclick="deleteGame(${game.id})" title="Remove Game" class="text-gray-400 hover:text-red-400 p-1.5 bg-[#171a21] rounded-lg border border-[#2a475e]">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-
-            lucide.createIcons();
-        }
-
-        // Toggle Game Status
-        function toggleGameStatus(id) {
-            const game = userLibrary.find(g => g.id === id);
-            if (game) {
-                if (game.status === 'Backlog') game.status = 'In Progress';
-                else if (game.status === 'In Progress') game.status = 'Played';
-                else game.status = 'Backlog';
-                saveLibrary();
-                renderLibraryView();
-                showToast(`Updated status for "${game.title}"`);
-            }
-        }
-
-        // Delete Game
-        function deleteGame(id) {
-            userLibrary = userLibrary.filter(g => g.id !== id);
-            saveLibrary();
-            renderLibraryView();
-            showToast("Game removed from library");
-        }
-
-        // Add Game Modal
-        function openAddGameModal() {
-            document.getElementById('add-game-modal').classList.remove('hidden');
-        }
-        function closeAddGameModal() {
-            document.getElementById('add-game-modal').classList.add('hidden');
-        }
-
-        function handleAddNewGame(e) {
-            e.preventDefault();
-            const title = document.getElementById('new-title').value.trim();
-            const genre = document.getElementById('new-genre').value;
-            const playtime = parseFloat(document.getElementById('new-playtime').value) || 0;
-            const status = document.getElementById('new-status').value;
-
-            const newGame = {
-                id: Date.now(),
-                title,
-                genre,
-                playtime,
-                status,
-                image: `https://placehold.co/600x350/1b2838/66c0f4?text=${encodeURIComponent(title)}`
-            };
-
-            userLibrary.push(newGame);
-            saveLibrary();
-            renderLibraryView();
-            closeAddGameModal();
-            showToast(`Added "${title}" to your library!`);
-            e.target.reset();
-        }
-
-        // Hosting Modal
-        function openHostingModal() {
-            document.getElementById('hosting-modal').classList.remove('hidden');
-        }
-        function closeHostingModal() {
-            document.getElementById('hosting-modal').classList.add('hidden');
-        }
-
-        // Toast Notification
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toast-message').textContent = message;
-            toast.classList.remove('translate-y-32', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-32', 'opacity-0');
-            }, 3500);
+                container.appendChild(card);
+            });
         }
     </script>
 </body>
